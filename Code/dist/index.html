@@ -1,97 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-   <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-   <title>YOLOInfer</title>
-   <link rel="manifest" href="/manifest.json">
-   <meta name="theme-color" content="#0a0a0a">
-   <meta name="apple-mobile-web-app-capable" content="yes">
-   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-   <meta name="apple-mobile-web-app-title" content="YOLOInfer">
-   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-   <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
-   <link rel="apple-touch-icon" href="/icons/icon-192.png">
-   <script>document.documentElement.dataset.theme=localStorage.getItem('yoloinfer-theme')||'dark'</script>
-  <script type="module" crossorigin src="/assets/index-fNFaJCeC.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-B1AbBP8L.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiraSight Vision Inference</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a0b0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MiraSight">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@300;400;500;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <script type="module" crossorigin src="/assets/index-BEkNYyeN.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-tQZ_zZJ9.css">
 </head>
 <body>
-   <div id="app">
-     <header>
-       <h1>YOLOInfer</h1>
-       <p class="subtitle">YOLOv8n Mobile Inference</p>
-     </header>
-     <main>
-       <div id="viewport">
-         <video id="video" autoplay muted playsinline hidden></video>
-         <img id="static-img" alt="" hidden>
-         <canvas id="overlay"></canvas>
-         <div id="placeholder">
-           <span class="ph-icon">&#8853;</span>
-           <span>Start camera or upload image</span>
-         </div>
-         <div id="fps-badge" hidden>0 FPS</div>
-         <div id="model-badge" hidden>Detection</div>
-         <div id="loader" hidden>
-           <div class="spinner"></div>
-           <p id="loader-msg">Loading model...</p>
-         </div>
-          <div id="error-screen" hidden>
-            <p id="error-msg"></p>
-            <p class="error-hint">Tap the "Model" button, then select your .onnx file</p>
-            <button onclick="location.reload()">Retry</button>
-          </div>
-       </div>
-       <div id="controls">
-         <div id="controls-header">
-           <select id="model-select" class="ctrl-select">
-             <option value="detection">Detection</option>
-             <option value="pose">Pose Estimation</option>
-             <option value="segmentation">Segmentation</option>
-           </select>
-           <button id="btn-theme" type="button" aria-label="Toggle theme">☀</button>
-         </div>
-         <div id="btn-row">
-           <button id="btn-camera" disabled>Loading...</button>
-           <label id="btn-upload" class="disabled">
-             <span>Upload</span>
-             <input type="file" id="file-input" accept="image/*" hidden>
-           </label>
-            <button id="btn-model" type="button">
-              <span>Model</span>
-            </button>
-            <input type="file" id="model-input" accept=".onnx" class="file-pick-hidden">
-           <button id="btn-capture">Capture</button>
-         </div>
-         <div id="thresholds">
-           <div class="ctrl-row" id="bbox-toggle-row" hidden>
-             <span class="ctrl-label">Show Boxes</span>
-             <div class="slider-row">
-               <label class="toggle-switch">
-                 <input type="checkbox" id="bbox-toggle" checked>
-                 <span class="toggle-track"></span>
-               </label>
-             </div>
-           </div>
-           <div class="ctrl-row">
-             <span class="ctrl-label">Confidence</span>
-             <div class="slider-row">
-               <input type="range" id="conf-slider" min="0" max="100" value="35">
-               <span id="conf-val" class="ctrl-value">0.35</span>
-             </div>
-           </div>
-           <div class="ctrl-row">
-             <span class="ctrl-label">IoU Threshold</span>
-             <div class="slider-row">
-               <input type="range" id="iou-slider" min="0" max="95" value="45">
-               <span id="iou-val" class="ctrl-value">0.45</span>
-             </div>
-           </div>
-         </div>
-       </div>
-     </main>
-     <footer>Created by Marcelo Rovai @ May 2026</footer>
-   </div>
+
+<header>
+  <div class="logo">
+    <div class="hex">M</div>
+    <div class="logo-t">Mira<span>Sight</span> Vision Inference</div>
+  </div>
+  <div class="hdr-r">
+    <div class="creator">YOLO<b>26</b> · LOCAL INFERENCE</div>
+    <div class="status-pill">
+      <div class="dot" id="sDot"></div>
+      <span id="sTxt">NO MODEL</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar">
+
+    <!-- STEP 1: MODEL -->
+    <div>
+      <div class="slabel">1 · Load Your Model</div>
+      <label class="model-drop">
+        <input type="file" id="modelFile" accept=".onnx,.pt,.torchscript" onchange="loadModel(event)">
+        <div class="model-drop-icon">🧠</div>
+        <div class="model-drop-txt">
+          Upload trained model file<br>
+          <small>.onnx — YOLO26 end-to-end export<br>.pt — shows export instructions</small>
+        </div>
+      </label>
+      <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar"></div></div>
+      <div class="model-card" id="modelCard">
+        <div class="mc-row"><span class="mc-k">File</span><span class="mc-v" id="mcFile">—</span></div>
+        <div class="mc-row"><span class="mc-k">Format</span><span class="mc-v" id="mcFmt">—</span></div>
+        <div class="mc-row"><span class="mc-k">Size</span><span class="mc-v" id="mcSz">—</span></div>
+        <div class="mc-row"><span class="mc-k">Status</span><span class="mc-v" id="mcStat">—</span></div>
+        <div class="mc-row"><span class="mc-k">Backend</span><span class="mc-v" id="mcBack">—</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 2: CONFIG -->
+    <div>
+      <div class="slabel">2 · Task Config</div>
+      <div class="cfg-stack">
+        <div class="cfg-row">
+          <div class="clabel">Task Type</div>
+          <select class="field" id="taskType" onchange="S&&(S.task=this.value)">
+            <option value="detect">Object Detection</option>
+            <option value="segment">Instance Segmentation</option>
+            <option value="classify">Classification</option>
+            <option value="pose">Pose Estimation</option>
+            <option value="obb">Oriented Bounding Box</option>
+          </select>
+        </div>
+        <div class="cfg-row">
+          <div class="clabel">Class Names <small style="color:var(--muted);font-size:8px;">(comma-separated)</small></div>
+          <input type="text" class="field" id="classNames" placeholder="helmet, vest, person, car…">
+          <div class="hint">Leave blank → auto-label as class_0, class_1…</div>
+        </div>
+        <div class="slider-blk">
+          <div class="slider-top"><div class="clabel">Confidence</div><div class="sval" id="cval">0.45</div></div>
+          <input type="range" min="0.01" max="0.99" step="0.01" value="0.45" id="conf"
+            oninput="document.getElementById('cval').textContent=parseFloat(this.value).toFixed(2)">
+        </div>
+        <div class="slider-blk">
+          <div class="slider-top"><div class="clabel">Input Size (px)</div><div class="sval" id="szval">640</div></div>
+          <input type="range" min="320" max="1280" step="32" value="640" id="imgsize"
+            oninput="document.getElementById('szval').textContent=this.value">
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: INPUT -->
+    <div>
+      <div class="slabel">3 · Input Source</div>
+      <div class="itype-grid" style="margin-bottom:9px;">
+        <button class="itype-btn on" id="ib-image" onclick="setInput('image')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Image
+        </button>
+        <button class="itype-btn" id="ib-video" onclick="setInput('video')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Video
+        </button>
+        <button class="itype-btn" id="ib-camera" onclick="setInput('camera')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Camera
+        </button>
+        <button class="itype-btn" id="ib-rtsp" onclick="setInput('rtsp')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>RTSP
+        </button>
+      </div>
+
+      <div id="fileSection">
+        <div class="media-drop" id="dropZone">
+          <input type="file" id="mediaFile" accept="image/*" onchange="handleMedia(event)">
+          <div class="drop-icon">📂</div>
+          <div class="drop-txt">Drop or <span>browse</span><br>JPG · PNG · BMP · MP4 · AVI · MOV</div>
+        </div>
+      </div>
+
+      <div class="rtsp-box" id="rtspBox">
+        <div class="cfg-row">
+          <div class="clabel">Stream URL</div>
+          <input type="text" class="field" id="rtspUrl" placeholder="rtsp://192.168.1.x:554/stream">
+        </div>
+        <div class="cfg-row">
+          <div class="clabel">Capture Rate</div>
+          <select class="field" id="rtspRate">
+            <option value="200">~5 FPS</option>
+            <option value="100" selected>~10 FPS</option>
+            <option value="66">~15 FPS</option>
+            <option value="33">~30 FPS</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:4px;">
+      <button class="btn-run" id="runBtn" onclick="runInference()">▶ RUN INFERENCE</button>
+      <button class="btn-stop" id="stopBtn" onclick="stopInference()">■ STOP</button>
+      <div class="btn-row">
+        <button class="btn-sec" onclick="resetAll()">↺ Reset</button>
+        <button class="btn-sec" onclick="exportJSON()">↓ Export</button>
+      </div>
+      <button class="btn-sec" onclick="snapshot()">📷 Save Snapshot</button>
+    </div>
+  </div>
+
+  <!-- ═══ CANVAS ═══ -->
+  <div class="canvas-area">
+    <div class="toolbar">
+      <div class="tbar-info">
+        <span>FRAME <span class="v" id="tFrame">—</span></span>
+        <span>FPS <span class="v" id="tFps">—</span></span>
+        <span>LATENCY <span class="v" id="tLat">—</span></span>
+        <span>OBJECTS <span class="v" id="tObj">—</span></span>
+      </div>
+      <div class="tbar-actions">
+        <button class="icon-btn" title="Zoom In" onclick="doZoom(1.2)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button class="icon-btn" title="Zoom Out" onclick="doZoom(0.8)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button class="icon-btn" title="Fit" onclick="doZoom(0)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
+        <button class="icon-btn" title="Snapshot" onclick="snapshot()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="grid-bg"></div>
+      <div class="placeholder" id="placeholder">
+        <div style="font-size:38px;opacity:.2;">🎯</div>
+        <div class="steps">
+          <div class="step-row"><div class="sn active" id="sn1">1</div>Upload your YOLO26 .onnx model</div>
+          <div class="step-row"><div class="sn" id="sn2">2</div>Set task type &amp; class names</div>
+          <div class="step-row"><div class="sn" id="sn3">3</div>Load image, video, or start camera</div>
+          <div class="step-row"><div class="sn" id="sn4">4</div>Click RUN INFERENCE</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--amber);letter-spacing:2px;margin-top:4px;">LOCAL · NO CLOUD · NO API KEY</div>
+      </div>
+
+      <div class="canvas-box" id="canvasBox">
+        <canvas id="inputCanvas"></canvas>
+        <canvas id="outputCanvas"></canvas>
+        <div class="cam-live" id="camLive"><div class="rec-dot"></div>LIVE</div>
+        <div class="proc-overlay" id="procOverlay">
+          <div class="spinner"></div>
+          <div class="proc-txt" id="procTxt">LOADING</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vid-bar" id="vidBar">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color:var(--dim);flex-shrink:0;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <div class="timeline" id="timeline" onclick="seekVid(event)"><div class="tl-fill" id="tlFill"></div></div>
+      <div class="ts" id="tsLbl">0:00 / 0:00</div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="right">
+    <div class="metrics">
+      <div class="metric"><div class="m-lbl">Objects</div><div class="m-val" id="mObj">0</div><div class="m-unit">DETECTED</div></div>
+      <div class="metric"><div class="m-lbl">Avg Conf</div><div class="m-val g" id="mConf">—</div><div class="m-unit">%</div></div>
+      <div class="metric"><div class="m-lbl">Inference</div><div class="m-val b" id="mTime">—</div><div class="m-unit">MS</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab on" onclick="swTab('det',this)">Detections</button>
+      <button class="tab" onclick="swTab('tl',this)">Timeline</button>
+      <button class="tab" onclick="swTab('perf',this)">Performance</button>
+    </div>
+
+    <div class="tab-panel on" id="tp-det">
+      <div class="psec" style="flex:1;">
+        <div class="slabel">Per-Class Count</div>
+        <div class="empty" id="detEmpty">No detections yet.<br>Load model &amp; run inference.</div>
+        <table class="det-table" id="detTable" style="display:none;">
+          <thead><tr><th>Class</th><th>Count</th><th>Avg Conf</th></tr></thead>
+          <tbody id="detBody"></tbody>
+        </table>
+      </div>
+      <div class="psec">
+        <div class="slabel">Legend</div>
+        <div id="legend" style="display:flex;flex-wrap:wrap;gap:6px;"><span style="font-family:var(--mono);font-size:8px;color:var(--muted);">—</span></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tp-tl">
+      <div class="psec" style="flex:1;overflow-y:auto;">
+        <div class="slabel">Detection Log</div>
+        <div class="log" id="log"><div class="empty">Use video or camera<br>to populate timeline.</div></div>
+      </div>
+      <div class="psec">
+        <div class="slabel">Video Summary</div>
+        <div class="info-grid">
+          <div class="ic"><div class="ic-k">Frames</div><div class="ic-v" id="vsF">—</div></div>
+          <div class="ic"><div class="ic-k">Peak Objects</div><div class="ic-v" id="vsP">—</div></div>
+          <div class="ic"><div class="ic-k">Avg Objects</div><div class="ic-v" id="vsA">—</div></div>
+          <div class="ic"><div class="ic-k">Duration</div><div class="ic-v" id="vsD">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tp-perf">
+      <div class="psec">
+        <div class="slabel">Inference Latency (ms)</div>
+        <canvas id="perfCanvas"></canvas>
+      </div>
+      <div class="psec">
+        <div class="slabel">Session Info</div>
+        <div class="info-grid">
+          <div class="ic"><div class="ic-k">Task</div><div class="ic-v" id="iTask">DETECT</div></div>
+          <div class="ic"><div class="ic-k">Input Size</div><div class="ic-v" id="iSz">640px</div></div>
+          <div class="ic"><div class="ic-k">Backend</div><div class="ic-v" id="iBack">—</div></div>
+          <div class="ic"><div class="ic-k">Model</div><div class="ic-v" id="iMdl">—</div></div>
+          <div class="ic"><div class="ic-k">Total Runs</div><div class="ic-v" id="iRuns">0</div></div>
+          <div class="ic"><div class="ic-k">Avg Latency</div><div class="ic-v" id="iAvg">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="watermark">MIRASIGHT VISION INFERENCE · YOLO26 · LOCAL<br>NO CLOUD · NO API KEY · RUNS IN YOUR BROWSER</div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<!-- PT / TORCHSCRIPT MODAL -->
+<div class="modal-bg" id="ptModal">
+  <div class="modal">
+    <h3>⚠ PyTorch .pt Model</h3>
+    <p>.pt files cannot run directly in the browser. Export to ONNX with end-to-end NMS first:</p>
+    <p><b>Export to YOLO26 end-to-end ONNX</b> (recommended):</p>
+    <div class="code-block">from ultralytics import YOLO
+
+model = YOLO("your_model.pt")
+model.export(format="onnx", imgsz=640, end2end=True)
+# Upload the generated .onnx here</div>
+    <p>Place your <code>.onnx</code> file in <code>Code/public/models/</code> for bundling, or upload it directly via the model drop zone above.</p>
+    <p><b>Option B — Local Flask inference server</b>:</p>
+    <div class="code-block">pip install ultralytics flask flask-cors
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from ultralytics import YOLO
+from PIL import Image
+import io
+
+app = Flask(__name__)
+CORS(app)
+model = YOLO("your_model.pt")
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    img = Image.open(io.BytesIO(request.data))
+    r = model(img)[0]
+    preds = [{"name": r.names[int(b.cls)],
+              "confidence": float(b.conf),
+              "box": {"x1":float(b.xyxy[0][0]),"y1":float(b.xyxy[0][1]),
+                      "x2":float(b.xyxy[0][2]),"y2":float(b.xyxy[0][3])}}
+             for b in r.boxes]
+    return jsonify({"predictions": preds})
+
+app.run(port=5000)</div>
+    <p>Running in <b>demo / simulation mode</b> until a valid .onnx is loaded.</p>
+    <button class="modal-ok" onclick="document.getElementById('ptModal').classList.remove('on')">Understood</button>
+  </div>
+</div>
+
 </body>
 </html>

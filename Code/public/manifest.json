@@ -1,12 +1,12 @@
 {
-  "name": "YOLOInfer",
-  "short_name": "YOLOInfer",
-  "description": "YOLOv8n object detection inference app",
+  "name": "MiraSight Vision Inference",
+  "short_name": "MiraSight",
+  "description": "YOLO26 local inference app — no cloud, no API key, runs entirely in your browser",
   "start_url": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "any",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "background_color": "#0a0b0d",
+  "theme_color": "#0a0b0d",
   "icons": [
     {
       "src": "/icons/icon-192.png",

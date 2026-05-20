@@ -1,318 +1,166 @@
 import * as ort from 'onnxruntime-web';
 
-const INPUT_W = 192;
-const INPUT_H = 192;
-
 let session = null;
-let customPath = null;
-let lastPreprocessState = { sx: 0, sy: 0, sw: 192, sh: 192, srcW: 192, srcH: 192 };
-let preprocessMode = 'crop'; // 'crop' (center-square) | 'letterbox' (scale+pad)
+let classNames = [];
 
-export function setPreprocessMode(mode) { preprocessMode = mode; }
-export function getPreprocessMode()      { return preprocessMode; }
+export function setClassNames(names) { classNames = names; }
+export function getSession()         { return session; }
+export function clearSession()       { session = null; }
 
-// Run a dummy inference immediately after loading to detect:
-//   - model type (detection / pose / segmentation)
-//   - coordinate convention (normalized 0-1 vs pixel 0-192)
-// Returns { type, normalizedCoords } or null if no session loaded.
-export async function detectOutputConventions() {
-  if (!session) return null;
-  const dummy = new ort.Tensor('float32', new Float32Array(3 * INPUT_H * INPUT_W).fill(0.45), [1, 3, INPUT_H, INPUT_W]);
-  const out = await session.run({ [session.inputNames[0]]: dummy });
-  const o = out[session.outputNames[0]];
-  const channels = o.dims[1];
-  const numBoxes = o.dims[2];
-  const hasTwoOutputs = session.outputNames.length > 1;
-
-  let type;
-  if (hasTwoOutputs) {
-    type = 'segmentation';
-  } else {
-    const impliedPoseClasses = channels - 4 - 17 * 3;
-    type = (impliedPoseClasses >= 1 && impliedPoseClasses <= 5) ? 'pose' : 'detection';
-  }
-
-  // Detection models: check if bbox cx values are normalized (0-1) or pixel (0-192).
-  // Normalized custom models have max cx << 1; standard Ultralytics outputs have max cx >> 1.
-  let normalizedCoords = true;
-  if (type === 'detection') {
-    let maxCx = 0;
-    const end = Math.min(numBoxes, 200);
-    for (let i = 0; i < end; i++) maxCx = Math.max(maxCx, o.data[i]);
-    normalizedCoords = maxCx < 1.5;
-  }
-
-  const numClasses = type === 'detection' ? channels - 4 : null;
-  return { type, normalizedCoords, numClasses };
+function cls(i) {
+  return classNames.length > i ? classNames[i] : `class_${i}`;
 }
 
-export function getLastPreprocessState() {
-  return lastPreprocessState;
-}
-
-export async function loadModel(overridePath) {
-  ort.env.wasm.wasmPaths =
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
-  ort.env.wasm.numThreads = 1;
+// Load an ONNX model from a File object or a URL string
+export async function loadModel(fileOrUrl) {
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+  ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
   ort.env.wasm.simd = true;
-  customPath = overridePath || null;
-  const modelPath = overridePath || '/models/yolov8n.onnx';
-  
-  const providers = ['wasm'];
-  
-  session = await ort.InferenceSession.create(modelPath, {
-    executionProviders: providers,
-    graphOptimizationLevel: 'all',
-  });
-  return session;
-}
 
-export function getSession() {
-  return session;
-}
+  const opts = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };
 
-export function setCustomPath(url) {
-  customPath = url;
-}
-
-export function getCustomPath() {
-  return customPath;
-}
-
-const _canvas = document.createElement('canvas');
-_canvas.width   = INPUT_W;
-_canvas.height = INPUT_H;
-const _ctx = _canvas.getContext('2d', { willReadFrequently: true });
-
-let _lastSource = null;
-
-export function preprocess(source) {
-  _lastSource = source;
-
-  const srcW = source.videoWidth || source.naturalWidth || source.width || INPUT_W;
-  const srcH = source.videoHeight || source.naturalHeight || source.height || INPUT_H;
-
-  if (preprocessMode === 'letterbox') {
-    // Scale full frame to fit 192×192 with black padding (standard YOLO eval mode)
-    const scale = Math.min(INPUT_W / srcW, INPUT_H / srcH);
-    const newW  = Math.round(srcW * scale);
-    const newH  = Math.round(srcH * scale);
-    const padX  = Math.floor((INPUT_W - newW) / 2);
-    const padY  = Math.floor((INPUT_H - newH) / 2);
-    lastPreprocessState = { srcW, srcH, scale, padX, padY };
-    _ctx.fillStyle = '#000';
-    _ctx.fillRect(0, 0, INPUT_W, INPUT_H);
-    _ctx.drawImage(source, padX, padY, newW, newH);
+  if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
+    const buffer = await fileOrUrl.arrayBuffer();
+    session = await ort.InferenceSession.create(buffer, opts);
   } else {
-    // Center square crop (used for custom detection model)
-    const minDim = Math.min(srcW, srcH);
-    const sx = Math.round((srcW - minDim) / 2);
-    const sy = Math.round((srcH - minDim) / 2);
-    lastPreprocessState = { sx, sy, sw: minDim, sh: minDim, srcW, srcH };
-    _ctx.drawImage(source, sx, sy, minDim, minDim, 0, 0, INPUT_W, INPUT_H);
+    session = await ort.InferenceSession.create(fileOrUrl, opts);
   }
-
-  const imgData = _ctx.getImageData(0, 0, INPUT_W, INPUT_H).data;
-  const pxCount = INPUT_W * INPUT_H;
-  const f32 = new Float32Array(3 * pxCount);
-
-  for (let i = 0; i < pxCount; i++) {
-    const s = i * 4;
-    f32[i]               = imgData[s]     / 255.0;
-    f32[i + pxCount]     = imgData[s + 1] / 255.0;
-    f32[i + pxCount * 2] = imgData[s + 2] / 255.0;
-  }
-
-  return new ort.Tensor('float32', f32, [1, 3, INPUT_H, INPUT_W]);
+  return session;
 }
 
-let confThresh = 0.35;
-let iouThresh  = 0.45;
+// Letterbox-resize source into a sz×sz offscreen canvas and return a CHW Float32 tensor
+// plus the transform state needed to map model coords back to original image coords.
+function letterboxTensor(source, sz) {
+  const srcW = source.videoWidth  || source.naturalWidth  || source.width;
+  const srcH = source.videoHeight || source.naturalHeight || source.height;
+  const scale = Math.min(sz / srcW, sz / srcH);
+  const newW  = Math.round(srcW * scale);
+  const newH  = Math.round(srcH * scale);
+  const padX  = Math.floor((sz - newW) / 2);
+  const padY  = Math.floor((sz - newH) / 2);
 
-export function getConf() { return confThresh; }
-export function getIou()   { return iouThresh; }
-export function setConf(v) { confThresh = v; }
-export function setIou(v)   { iouThresh = v; }
+  const off = document.createElement('canvas');
+  off.width = sz; off.height = sz;
+  const ctx = off.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, sz, sz);
+  ctx.drawImage(source, padX, padY, newW, newH);
 
-export function nms(boxes, iouTV) {
-  const byConf = [...boxes].sort((a, b) => b.conf - a.conf);
-  const kept   = [];
-  const pruned = new Set();
-  
-  for (let i = 0; i < byConf.length; i++) {
-    if (pruned.has(i)) continue;
-    kept.push(byConf[i]);
-    for (let j = i + 1; j < byConf.length; j++) {
-      if (pruned.has(j)) continue;
-      if (computeIoU(byConf[i], byConf[j]) < iouTV) continue;
-      pruned.add(j);
-    }
+  const px = ctx.getImageData(0, 0, sz, sz).data;
+  const n  = sz * sz;
+  const t  = new Float32Array(3 * n);
+  for (let i = 0; i < n; i++) {
+    t[i]         = px[i * 4]     / 255;
+    t[n + i]     = px[i * 4 + 1] / 255;
+    t[2 * n + i] = px[i * 4 + 2] / 255;
   }
-  return kept;
+  return {
+    tensor: new ort.Tensor('float32', t, [1, 3, sz, sz]),
+    scale, padX, padY, srcW, srcH,
+  };
 }
 
-function computeIoU(a, b) {
-  const ix1 = Math.max(a.x1, b.x1);
-  const iy1 = Math.max(a.y1, b.y1);
-  const ix2 = Math.min(a.x2, b.x2);
-  const iy2 = Math.min(a.y2, b.y2);
-  const inter = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
-  const aA = (a.x2 - a.x1) * (a.y2 - a.y1);
-  const bA = (b.x2 - b.x1) * (b.y2 - b.y1);
-  return inter / Math.max(aA + bA - inter, 0.0001);
-}
+// Parse YOLO26 end-to-end detection output.
+// tensor.dims = [1, max_det, D]  D >= 6
+// Each row: [x1, y1, x2, y2, score, class_id, …extra]
+// Coordinates are in model input pixel space (0..sz); they are sorted descending by score.
+function parseYolo26(tensor, sz, imgW, imgH, scale, padX, padY, confT) {
+  const data   = tensor.data;
+  const maxDet = tensor.dims[1];
+  const D      = tensor.dims[2];
+  const invSc  = 1 / scale;
+  const preds  = [];
 
-export function postprocessDetection(outputTensor, numBoxes, confTV, iouTV, coordScale = 192) {
-  const data = outputTensor.data;
-  const numClasses = outputTensor.dims[1] - 4;
-  const candidates = [];
+  for (let i = 0; i < maxDet; i++) {
+    const b     = i * D;
+    const score = data[b + 4];
+    if (score < confT) break; // YOLO26 outputs are sorted — safe to break early
 
-  for (let i = 0; i < numBoxes; i++) {
-    const cx = data[0 * numBoxes + i] * coordScale;
-    const cy = data[1 * numBoxes + i] * coordScale;
-    const w  = data[2 * numBoxes + i] * coordScale;
-    const h  = data[3 * numBoxes + i] * coordScale;
-    
-    let bestScore = 0;
-    let bestClassId = 0;
-    for (let c = 0; c < numClasses; c++) {
-      const si = (4 + c) * numBoxes + i;
-      if (data[si] > bestScore) {
-        bestScore = data[si];
-        bestClassId = c;
+    const classId = Math.round(data[b + 5]);
+
+    // Undo letterbox padding and scale back to source image coordinates
+    const x1 = Math.max(0,    (data[b + 0] - padX) * invSc);
+    const y1 = Math.max(0,    (data[b + 1] - padY) * invSc);
+    const x2 = Math.min(imgW, (data[b + 2] - padX) * invSc);
+    const y2 = Math.min(imgH, (data[b + 3] - padY) * invSc);
+
+    const pred = { name: cls(classId), confidence: score, box: { x1, y1, x2, y2 } };
+
+    // Pose: D === 6 + 17*3 = 57  →  extract COCO 17 keypoints
+    if (D === 57) {
+      pred.kp = { x: [], y: [], v: [] };
+      for (let k = 0; k < 17; k++) {
+        const o = b + 6 + k * 3;
+        pred.kp.x.push((data[o]     - padX) * invSc / imgW);
+        pred.kp.y.push((data[o + 1] - padY) * invSc / imgH);
+        pred.kp.v.push(data[o + 2] > 0.5 ? 1 : 0);
       }
     }
 
-    const conf = Math.max(0, bestScore);
-    if (conf < confTV) continue;
-
-    candidates.push({
-      x1: cx - w / 2,
-      y1: cy - h / 2,
-      x2: cx + w / 2,
-      y2: cy + h / 2,
-      classId: bestClassId,
-      conf,
-      type: 'bbox',
-    });
+    preds.push(pred);
   }
-  
-  return nms(candidates, iouTV);
+  return preds;
 }
 
-export function postprocessPose(outputTensor, numBoxes, confTV, iouTV) {
-  const data = outputTensor.data;
-  const kptCount = 17;
-  const numClasses = outputTensor.dims[1] - 4 - kptCount * 3;
-  const candidates = [];
+// Segmentation variant: second output is a prototype tensor [1, nm, ph, pw].
+// Detection rows have D = 6 + nm mask coefficients after the base 6 values.
+function parseYolo26Seg(detTensor, protoTensor, sz, imgW, imgH, scale, padX, padY, confT) {
+  const preds = parseYolo26(detTensor, sz, imgW, imgH, scale, padX, padY, confT);
+  const D       = detTensor.dims[2];
+  const nm      = D - 6;
+  const data    = detTensor.data;
+  const PROTO_H = protoTensor.dims[2];
+  const PROTO_W = protoTensor.dims[3];
+  const proto   = protoTensor.data;
 
-  for (let i = 0; i < numBoxes; i++) {
-    // pose/seg models output absolute pixel coords (0-192), not normalized
-    const cx = data[0 * numBoxes + i];
-    const cy = data[1 * numBoxes + i];
-    const w  = data[2 * numBoxes + i];
-    const h  = data[3 * numBoxes + i];
-
-    let bestScore = 0;
-    let bestClassId = 0;
-    for (let c = 0; c < numClasses; c++) {
-      const si = (4 + c) * numBoxes + i;
-      if (data[si] > bestScore) {
-        bestScore = data[si];
-        bestClassId = c;
-      }
-    }
-
-    const conf = Math.max(0, bestScore);
-    if (conf < confTV) continue;
-
-    const kpts = [];
-    for (let k = 0; k < kptCount; k++) {
-      const k0 = (4 + numClasses + k * 3) * numBoxes + i;
-      const k1 = (4 + numClasses + k * 3 + 1) * numBoxes + i;
-      const k2 = (4 + numClasses + k * 3 + 2) * numBoxes + i;
-      kpts.push({ x: data[k0], y: data[k1], conf: data[k2] });
-    }
-
-    candidates.push({
-      x1: cx - w / 2,
-      y1: cy - h / 2,
-      x2: cx + w / 2,
-      y2: cy + h / 2,
-      classId: bestClassId,
-      conf,
-      kpts,
-      type: 'keypoints',
-    });
-  }
-
-  return nms(candidates, iouTV);
-}
-
-export function postprocessSegmentation(outputTensor, protosData, numBoxes, confTV, iouTV) {
-  const data = outputTensor.data;
-  const maskDims = 32;
-  const PROTO_H = 48, PROTO_W = 48;
-  const numClasses = outputTensor.dims[1] - 4 - maskDims;
-  const candidates = [];
-
-  for (let i = 0; i < numBoxes; i++) {
-    // pose/seg models output absolute pixel coords (0-192), not normalized
-    const cx = data[0 * numBoxes + i];
-    const cy = data[1 * numBoxes + i];
-    const w  = data[2 * numBoxes + i];
-    const h  = data[3 * numBoxes + i];
-
-    let bestScore = 0;
-    let bestClassId = 0;
-    for (let c = 0; c < numClasses; c++) {
-      const si = (4 + c) * numBoxes + i;
-      if (data[si] > bestScore) {
-        bestScore = data[si];
-        bestClassId = c;
-      }
-    }
-
-    const conf = Math.max(0, bestScore);
-    if (conf < confTV) continue;
-
-    const maskCoeffs = new Float32Array(maskDims);
-    for (let m = 0; m < maskDims; m++) {
-      maskCoeffs[m] = data[(4 + numClasses + m) * numBoxes + i];
-    }
-
-    // Compute 48×48 instance mask: sigmoid(coefficients · protos)
-    // Pixels outside the detection bbox are zeroed to prevent bleeding into
-    // neighboring objects (proto space = same extent as 192×192 input)
-    const scale = PROTO_H / 192;
-    const bpx1 = Math.max(0,  Math.floor((cx - w / 2) * scale));
-    const bpy1 = Math.max(0,  Math.floor((cy - h / 2) * scale));
-    const bpx2 = Math.min(PROTO_W - 1, Math.ceil((cx + w / 2) * scale));
-    const bpy2 = Math.min(PROTO_H - 1, Math.ceil((cy + h / 2) * scale));
+  preds.forEach((pred, idx) => {
+    const b      = idx * D;
+    const coeffs = new Float32Array(nm);
+    for (let m = 0; m < nm; m++) coeffs[m] = data[b + 6 + m];
 
     const mask = new Float32Array(PROTO_H * PROTO_W);
     for (let py = 0; py < PROTO_H; py++) {
       for (let px = 0; px < PROTO_W; px++) {
-        if (py < bpy1 || py > bpy2 || px < bpx1 || px > bpx2) continue;
         let val = 0;
-        for (let m = 0; m < maskDims; m++) {
-          val += maskCoeffs[m] * protosData[m * PROTO_H * PROTO_W + py * PROTO_W + px];
+        for (let m = 0; m < nm; m++) {
+          val += coeffs[m] * proto[m * PROTO_H * PROTO_W + py * PROTO_W + px];
         }
         mask[py * PROTO_W + px] = 1 / (1 + Math.exp(-val));
       }
     }
+    pred.segments = { mask, ph: PROTO_H, pw: PROTO_W };
+  });
 
-    candidates.push({
-      x1: cx - w / 2,
-      y1: cy - h / 2,
-      x2: cx + w / 2,
-      y2: cy + h / 2,
-      classId: bestClassId,
-      conf,
-      mask,
-      type: 'mask',
-    });
+  return preds;
+}
+
+// Main inference entry point.
+// source   — canvas, video, or image element to run inference on
+// inputSz  — square input size in px (e.g. 640); read from the UI slider
+// confT    — confidence threshold
+export async function inferFrame(source, inputSz, confT) {
+  if (!session) return null;
+
+  const { tensor, scale, padX, padY, srcW, srcH } =
+    letterboxTensor(source, inputSz);
+
+  const feeds   = { [session.inputNames[0]]: tensor };
+  const out     = await session.run(feeds);
+  const outNames = session.outputNames;
+  const o0      = out[outNames[0]];
+
+  // YOLO26 end-to-end: output shape [1, max_det, D] where D >= 6
+  if (o0.dims.length === 3 && o0.dims[2] >= 6) {
+    if (outNames.length > 1) {
+      // Segmentation — second tensor is the prototype map
+      const proto = out[outNames[1]];
+      const preds = parseYolo26Seg(o0, proto, inputSz, srcW, srcH, scale, padX, padY, confT);
+      return { predictions: preds };
+    }
+    const preds = parseYolo26(o0, inputSz, srcW, srcH, scale, padX, padY, confT);
+    return { predictions: preds };
   }
 
-  return nms(candidates, iouTV);
+  console.warn('Unrecognized YOLO26 output format:', o0.dims, '— export with end2end=True');
+  return { predictions: [] };
 }
