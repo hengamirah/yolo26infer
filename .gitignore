@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+Code/node_modules/
+
+# Vite build cache
+.vite/
+Code/.vite/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
