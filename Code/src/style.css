@@ -3,10 +3,10 @@
    ═══════════════════════════════════════════ */
 
 :root {
-  --bg:  #0a0b0d;
-  --bg2: #111318;
-  --bg3: #181c24;
-  --bg4: #1e2330;
+  --bg:  #13151a;
+  --bg2: #1a1e27;
+  --bg3: #21262f;
+  --bg4: #282e3e;
   --border:    rgba(255,255,255,0.08);
   --border-hi: rgba(255,180,0,0.35);
   --amber:     #ffb400;
@@ -146,7 +146,11 @@ header {
 .model-drop input {
   position:absolute; inset:0; width:100%; height:100%;
   opacity:0; cursor:pointer; font-size:0;
+  -webkit-appearance:none; appearance:none;
 }
+/* suppress the native "Choose File" button that some browsers render */
+.model-drop input::-webkit-file-upload-button { display:none; width:0; height:0; }
+.model-drop input::file-selector-button       { display:none; width:0; height:0; }
 .model-drop-icon  { font-size: 20px; margin-bottom: 5px; }
 .model-drop-txt   { font-family: var(--mono); font-size: 10px; color: var(--amber); line-height: 1.7; }
 .model-drop-txt small { color: var(--muted); font-size: 9px; }
@@ -221,7 +225,13 @@ input[type=range]::-webkit-slider-thumb {
   padding: 16px; text-align:center; cursor:pointer; transition:all .2s; position:relative;
 }
 .media-drop:hover,.media-drop.over { border-color:#cc8f00; background:var(--amber-glow); }
-.media-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.media-drop input {
+  position:absolute; inset:0; width:100%; height:100%;
+  opacity:0; cursor:pointer; font-size:0;
+  -webkit-appearance:none; appearance:none;
+}
+.media-drop input::-webkit-file-upload-button { display:none; width:0; height:0; }
+.media-drop input::file-selector-button       { display:none; width:0; height:0; }
 .drop-icon { font-size:20px; margin-bottom:4px; }
 .drop-txt  { font-family:var(--mono); font-size:9px; color:var(--dim); line-height:1.8; }
 .drop-txt span { color:var(--amber); }
