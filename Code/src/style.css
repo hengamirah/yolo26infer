@@ -140,9 +140,13 @@ header {
   border: 1px dashed var(--border-hi); border-radius: var(--r);
   padding: 14px; background: var(--amber-glow);
   text-align: center; cursor: pointer; position: relative; transition: all .2s;
+  overflow: hidden; /* prevent file-input from bleeding outside on mobile */
 }
 .model-drop:hover { border-color: var(--amber); background: rgba(255,180,0,.16); }
-.model-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.model-drop input {
+  position:absolute; inset:0; width:100%; height:100%;
+  opacity:0; cursor:pointer; font-size:0;
+}
 .model-drop-icon  { font-size: 20px; margin-bottom: 5px; }
 .model-drop-txt   { font-family: var(--mono); font-size: 10px; color: var(--amber); line-height: 1.7; }
 .model-drop-txt small { color: var(--muted); font-size: 9px; }
@@ -489,3 +493,71 @@ input[type=range]::-webkit-slider-thumb {
   padding:10px 20px; cursor:pointer; width:100%;
 }
 .modal-ok:hover { background:#ffc933; }
+
+/* ─── RESPONSIVE / MOBILE ─── */
+
+/* Tablet: hide right panel, sidebar becomes top bar */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Sidebar scrolls horizontally as a compact strip */
+  .sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .sidebar > div { min-width: 220px; flex: 1; }
+  .sidebar > div:last-child { min-width: 100%; } /* action buttons full-width */
+
+  /* Canvas fills available height */
+  .canvas-area { height: 60vh; min-height: 320px; }
+
+  /* Hide right panel on tablet — data is secondary on small screens */
+  .right { display: none; }
+}
+
+/* Phone: single-column stacked layout */
+@media (max-width: 600px) {
+  header { padding: 0 14px; height: 48px; }
+  .logo-t { font-size: 13px; letter-spacing: 1.5px; }
+  .creator { display: none; }
+
+  .sidebar {
+    flex-direction: column;
+    overflow-x: visible;
+    padding: 12px;
+    gap: 14px;
+  }
+  .sidebar > div { min-width: unset; }
+
+  .itype-grid { grid-template-columns: 1fr 1fr; }
+
+  .canvas-area { height: 55vw; min-height: 260px; }
+  .canvas-wrap  { padding: 10px; }
+
+  .toolbar { padding: 6px 10px; }
+  .tbar-info { gap: 10px; font-size: 8px; }
+
+  .placeholder {
+    width: 100%; height: 100%;
+    max-width: unset;
+  }
+
+  /* Stack metrics on phone */
+  .right {
+    display: flex;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .metrics { grid-template-columns: 1fr 1fr 1fr; }
+}
