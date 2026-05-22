@@ -144,13 +144,8 @@ header {
 }
 .model-drop:hover { border-color: var(--amber); background: rgba(255,180,0,.16); }
 .model-drop input {
-  position:absolute; inset:0; width:100%; height:100%;
-  opacity:0; cursor:pointer; font-size:0;
-  -webkit-appearance:none; appearance:none;
+  display: none; /* label wraps input — clicking label still opens file dialog */
 }
-/* suppress the native "Choose File" button that some browsers render */
-.model-drop input::-webkit-file-upload-button { display:none; width:0; height:0; }
-.model-drop input::file-selector-button       { display:none; width:0; height:0; }
 .model-drop-icon  { font-size: 20px; margin-bottom: 5px; }
 .model-drop-txt   { font-family: var(--mono); font-size: 10px; color: var(--amber); line-height: 1.7; }
 .model-drop-txt small { color: var(--muted); font-size: 9px; }
@@ -226,12 +221,8 @@ input[type=range]::-webkit-slider-thumb {
 }
 .media-drop:hover,.media-drop.over { border-color:#cc8f00; background:var(--amber-glow); }
 .media-drop input {
-  position:absolute; inset:0; width:100%; height:100%;
-  opacity:0; cursor:pointer; font-size:0;
-  -webkit-appearance:none; appearance:none;
+  display: none; /* label wraps input — clicking label still opens file dialog */
 }
-.media-drop input::-webkit-file-upload-button { display:none; width:0; height:0; }
-.media-drop input::file-selector-button       { display:none; width:0; height:0; }
 .drop-icon { font-size:20px; margin-bottom:4px; }
 .drop-txt  { font-family:var(--mono); font-size:9px; color:var(--dim); line-height:1.8; }
 .drop-txt span { color:var(--amber); }
